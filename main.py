@@ -126,6 +126,7 @@ def excluir_planta(
         "mensagem": "Planta excluída com sucesso!"
     }
 
+
 @app.post("/plantas/{planta_id}/registros")
 def cadastrar_registro(
     planta_id: int,
@@ -139,10 +140,24 @@ def cadastrar_registro(
     if planta is None:
         raise HTTPException(
             status_code=404,
-            detail="Planta não encontrada para registro de crescimento."
+            detail="Planta não encontrada."
         )
 
+    ultimo_registro = banco.query(
+        models.RegistroCrescimento
+    ).filter(
+        models.RegistroCrescimento.planta_id == planta_id
+    ).order_by(
+        models.RegistroCrescimento.id_registro.desc()
+    ).first()
+
+    if ultimo_registro is None:
+        proximo_id = 1
+    else:
+        proximo_id = ultimo_registro.id_registro + 1
+
     novo_registro = models.RegistroCrescimento(
+        id_registro=proximo_id,
         data_registro=dados.data_registro,
         altura=dados.altura,
         descricao=dados.descricao,
@@ -155,11 +170,155 @@ def cadastrar_registro(
 
     return {
         "mensagem": "Registro de crescimento cadastrado com sucesso!",
-        "id": novo_registro.id,
+        "id_registro": novo_registro.id_registro,
         "data_registro": novo_registro.data_registro,
         "altura": novo_registro.altura,
         "descricao": novo_registro.descricao,
         "planta_id": novo_registro.planta_id
+    }
+
+
+
+@app.get("/plantas/{planta_id}/registros/{registro_id}")
+def buscar_registro(
+    planta_id: int,
+    registro_id: int,
+    banco: Session = Depends(obter_banco)
+):
+    planta = banco.query(models.Planta).filter(
+        models.Planta.id == planta_id
+    ).first()
+
+    if planta is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Planta não encontrada."
+        )
+
+    registro = banco.query(
+        models.RegistroCrescimento
+    ).filter(
+        models.RegistroCrescimento.id_registro == registro_id,
+        models.RegistroCrescimento.planta_id == planta_id
+    ).first()
+
+    if registro is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Registro não encontrado para esta planta."
+        )
+
+    return registro
+
+
+@app.get("/plantas/{planta_id}/registros")
+def listar_registros(
+    planta_id: int,
+    banco: Session = Depends(obter_banco)
+):
+    planta = banco.query(models.Planta).filter(
+        models.Planta.id == planta_id
+    ).first()
+
+    if planta is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Planta não encontrada."
+        )
+
+    registros = banco.query(
+        models.RegistroCrescimento
+    ).filter(
+        models.RegistroCrescimento.planta_id == planta_id
+    ).all()
+
+    return registros
+
+
+@app.put("/plantas/{planta_id}/registros/{registro_id}")
+def atualizar_registro(
+    planta_id: int,
+    registro_id: int,
+    dados: schemas.RegistroCrescimentoAtualizar,
+    banco: Session = Depends(obter_banco)
+):
+    planta = banco.query(models.Planta).filter(
+        models.Planta.id == planta_id
+    ).first()
+
+    if planta is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Planta não encontrada."
+        )
+
+    registro = banco.query(
+        models.RegistroCrescimento
+    ).filter(
+        models.RegistroCrescimento.id_registro == registro_id,
+        models.RegistroCrescimento.planta_id == planta_id
+    ).first()
+
+    if registro is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Registro não encontrado para esta planta."
+        )
+
+    registro.data_registro = dados.data_registro
+    registro.altura = dados.altura
+    registro.descricao = dados.descricao
+
+    banco.commit()
+    banco.refresh(registro)
+
+    return {
+        "mensagem": "Registro atualizado com sucesso!",
+        "id_registro": registro.id_registro,
+        "data_registro": registro.data_registro,
+        "altura": registro.altura,
+        "descricao": registro.descricao,
+        "planta_id": registro.planta_id
+    }
+
+
+
+@app.delete("/plantas/{planta_id}/registros/{registro_id}")
+def excluir_registro(
+    planta_id: int,
+    registro_id: int,
+    banco: Session = Depends(obter_banco)
+):
+    planta = banco.query(models.Planta).filter(
+        models.Planta.id == planta_id
+    ).first()
+
+    if planta is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Planta não encontrada."
+        )
+
+    registro = banco.query(
+        models.RegistroCrescimento
+    ).filter(
+        models.RegistroCrescimento.id_registro == registro_id,
+        models.RegistroCrescimento.planta_id == planta_id
+    ).first()
+
+    if registro is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Registro não encontrado para esta planta."
+        )
+
+    banco.delete(registro)
+    banco.commit()
+
+    return {
+        "mensagem": "Registro excluído com sucesso!",
+        "id_registro": registro_id,
+        "planta_id": planta_id
     }
 
 

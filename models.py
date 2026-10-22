@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Date
 from database import Base
 from sqlalchemy import ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 
 class Planta(Base):
     __tablename__ = "Plantas"
@@ -12,14 +12,19 @@ class Planta(Base):
     data_plantio = Column(Date, nullable=False)
     local = Column(String, nullable=False)
     
-
 class RegistroCrescimento(Base):
     __tablename__ = "Registro_Crescimento"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id_registro = Column(Integer, primary_key=True, index=True)
     data_registro = Column(Date, nullable=False)
     altura = Column(Integer, nullable=True)
     descricao = Column(String, nullable=False)
 
-    planta_id = Column(Integer, ForeignKey("Plantas.id"), nullable=False)
-    planta = relationship("Planta", backref="registros")
+    planta_id = Column(
+        Integer,
+        ForeignKey("Plantas.id"),
+        primary_key=True
+    )
+
+    planta = relationship("Planta", backref=backref("registros", cascade="all, delete-orphan"))
+
