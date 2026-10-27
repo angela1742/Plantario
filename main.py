@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database import engine, Base, SessionLocal
@@ -23,7 +23,7 @@ def inicio():
     return {"mensagem": "Bem-vindo ao Plantário!"}
 
 
-@app.post("/plantas")
+@app.post("/plantas", status_code=status.HTTP_201_CREATED)
 def cadastrar_planta(
     planta: schemas.PlantaCreate,
     banco: Session = Depends(obter_banco)
@@ -67,7 +67,10 @@ def buscar_planta(
     ).first()
 
     if planta is None:
-        return {"mensagem": "Planta não encontrada."}
+        raise HTTPException(
+        status_code=404,
+        detail="Planta não encontrada."
+    )
 
     return planta
 
@@ -127,7 +130,7 @@ def excluir_planta(
     }
 
 
-@app.post("/plantas/{planta_id}/registros")
+@app.post("/plantas/{planta_id}/registros",status_code=status.HTTP_201_CREATED)
 def cadastrar_registro(
     planta_id: int,
     dados: schemas.RegistroCrescimentoCreate,
