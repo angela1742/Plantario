@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from database import engine, Base, SessionLocal
@@ -50,12 +50,91 @@ def cadastrar_planta(
     }
 
 
+
+
 @app.get("/plantas")
-def listar_plantas(banco: Session = Depends(obter_banco)):
-    plantas = banco.query(models.Planta).all()
+def listar_plantas(
+    Busca_Geral: str | None = Query(
+        default=None,
+        description="nome, especie ou local."
+    ),
+    Por_Especie: str | None = Query(
+        default=None,
+        description="especie específica."
+    ),
+    Ordenar_Por: str = Query(
+        default="nome",
+        description="id, nome, especie, data_plantio ou local."
+    ),
+    Ordem: str = Query(
+        default="Crescente",
+        description="ordenar: Crescente ou Decrescente."
+    ),
+    Pagina_Consulta: int = Query(default=1, ge=1,
+        description="Escolha a pagina de consulta"),
+    Limite_de_plantas: int = Query(default=10, ge=1, le=100,
+        description="Escolha o limite de plantas, mínimo: 1, máximo: 100, padrão: 10"),
+    banco: Session = Depends(obter_banco)
+):
+    consulta = banco.query(models.Planta)
 
-    return plantas
+    if Busca_Geral:
+        termo = f"%{Busca_Geral.strip()}%"
+        consulta = consulta.filter(
+            models.Planta.nome.ilike(termo)
+            | models.Planta.especie.ilike(termo)
+            | models.Planta.local.ilike(termo)
+        )
 
+    if Por_Especie:
+        consulta = consulta.filter(
+            models.Planta.especie.ilike(Por_Especie.strip())
+        )
+
+    campos = {
+        "id": models.Planta.id,
+        "nome": models.Planta.nome,
+        "especie": models.Planta.especie,
+        "data_plantio": models.Planta.data_plantio,
+        "local": models.Planta.local
+    }
+
+    if Ordenar_Por not in campos:
+        raise HTTPException(
+            status_code=400,
+            detail="Campo de ordenação inválido."
+        )
+
+    if Ordem not in ("Crescente", "Decrescente"):
+        raise HTTPException(
+            status_code=400,
+            detail="A ordem deve ser Crescente ou Decrescente."
+        )
+
+    campo = campos[Ordenar_Por]
+
+    if Ordem == "Decrescente":
+        consulta = consulta.order_by(campo.desc())
+    else:
+        consulta = consulta.order_by(campo.asc())
+
+    total = consulta.count()
+
+    deslocamento = (Pagina_Consulta - 1) * Limite_de_plantas
+
+    plantas = consulta.offset(deslocamento).limit(
+        Limite_de_plantas
+    ).all()
+
+    return {
+        "total": total,
+        "pagina": Pagina_Consulta,
+        "limite": Limite_de_plantas,
+        "total_paginas": (
+            total + Limite_de_plantas - 1
+        ) // Limite_de_plantas,
+        "plantas": plantas
+    }
 
 @app.get("/plantas/{planta_id}")
 def buscar_planta(
