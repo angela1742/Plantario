@@ -225,6 +225,12 @@ def cadastrar_registro(
             detail="Planta não encontrada."
         )
 
+    if dados.data_registro < planta.data_plantio:
+        raise HTTPException(
+        status_code=400,
+        detail="A data do registro não pode ser anterior à data de plantio da planta."
+    )
+
     ultimo_registro = banco.query(
         models.RegistroCrescimento
     ).filter(
